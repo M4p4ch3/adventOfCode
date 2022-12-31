@@ -35,14 +35,28 @@ class Valve():
         self.flow_rate = flow_rate
         self.tunnel_list = tunnel_list
 
-        self.open = False
+        # self.open = False
 
     def print(self):
         """print"""
+
         g_logger.debug("Valve")
         g_logger.debug("  name          = %s", self.name)
         g_logger.debug("  flow_rate     = %s", self.flow_rate)
         g_logger.debug("  tunnel_list   = %s", self.tunnel_list)
+
+    # def copy(self):
+    #     """copy"""
+
+    #     tunnel_list: List[str] = []
+    #     for tunnel in self.tunnel_list:
+    #         tunnel_list += [tunnel]
+
+    #     valve = Valve(self.name, self.flow_rate, tunnel_list)
+
+    #     # valve.open = self.open
+
+    #     return valve
 
 def browse_interactive(valve_dict: Dict[str, Valve]):
     """browse_interactive"""
@@ -92,41 +106,50 @@ def browse_interactive(valve_dict: Dict[str, Valve]):
 
     return pressure_released
 
-def browse(valve_dict: Dict[str, Valve]):
+def browse(valve_dict: Dict[str, Valve], valve_cur_name: str, valve_open_name_list: List[str],
+    flow_rate: int, pressure_released: int, min_left: int):
     """browse"""
 
-    pressure_released = 0
-    flow_rate = 0
-    min_left = 30
-    valve_cur = valve_dict["AA"]
+    pressure_released_max = 0
 
-    while min_left > 0:
+    g_logger.debug("Minute %d", 30 - min_left + 1)
+    g_logger.debug("  current valve     = %s", valve_cur_name)
+    g_logger.debug("  open valves       = %s", valve_open_name_list)
+    g_logger.debug("  flow rate         = %d", flow_rate)
+    g_logger.debug("  released pressure = %d", pressure_released)
 
-        g_logger.debug("Minute %d", 30 - min_left + 1)
-        g_logger.debug("  flow_rate         = %d", flow_rate)
-        g_logger.debug("  pressure_released = %d", pressure_released)
+    if min_left <= 0:
+        return pressure_released
 
-        valve_cur.print()
+    valve_cur = valve_dict[valve_cur_name]
 
-        if valve_cur.open or valve_cur.flow_rate == 0:
-            action = 1
-        else:
-            action = random.randint(0, 1)
+    # valve_cur.print()
+    # input()
 
-        if action == 0:
-            g_logger.debug("Open valve %s", valve_cur.name)
-            valve_cur.open = True
-            flow_rate += valve_cur.flow_rate
-        else:
-            dst_valve_idx = random.randint(0, len(valve_cur.tunnel_list) - 1)
-            dst_valve_name = valve_cur.tunnel_list[dst_valve_idx]
-            g_logger.debug("Move to valve %s", dst_valve_name)
-            valve_cur = valve_dict[dst_valve_name]
+    if valve_cur.name not in valve_open_name_list and valve_cur.flow_rate != 0:
 
-        pressure_released += flow_rate
-        min_left -= 1
+        g_logger.debug("  Open valve %s", valve_cur.name)
 
-    return pressure_released
+        pressure_released_ret = browse(valve_dict, valve_cur_name,
+            valve_open_name_list + [valve_cur.name], flow_rate + valve_cur.flow_rate,
+            pressure_released + flow_rate + valve_cur.flow_rate, min_left - 1)
+
+        if pressure_released_ret > pressure_released_max:
+            pressure_released_max = pressure_released_ret
+            g_logger.info("new max pressure released = %d", pressure_released_max)
+
+    for valve_dst_name in valve_cur.tunnel_list:
+
+        g_logger.debug("  Move to valve %s", valve_dst_name)
+
+        pressure_released_ret = browse(valve_dict, valve_dst_name, valve_open_name_list,
+            flow_rate, pressure_released + flow_rate, min_left - 1)
+
+        if pressure_released_ret > pressure_released_max:
+            pressure_released_max = pressure_released_ret
+            g_logger.info("new max pressure released = %d", pressure_released_max)
+
+    return pressure_released_max
 
 def solve(data: str):
     """
@@ -153,13 +176,11 @@ def solve(data: str):
 
             valve_dict[valve_name] = valve
 
-    pressure_released_max = 0
-    for _ in range(1000):
-        pressure_released = browse(valve_dict)
-        if pressure_released > pressure_released_max:
-            pressure_released_max = pressure_released
+    pressure_released = 0
 
-    return pressure_released_max
+    pressure_released = browse(valve_dict, "AA", [], 0, 0, 30)
+
+    return pressure_released
 
 def main():
     """
